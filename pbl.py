@@ -4,6 +4,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.backends import default_backend
 import pandas as pd
+from datetime import datetime
 
 # Fungsi untuk membuat kunci RSA (public dan private)
 def generate_rsa_keys():
@@ -52,18 +53,68 @@ def encrypt_data(data):
 def login():
     username = username_entry.get()
     password = password_entry.get()
-    data = username + " " + password
+    
+    # Cek apakah login sesuai
+    if username == "Arsyad" and password == "admin123":
+        messagebox.showinfo("Login Info", "Login berhasil!")
+        login_window.destroy()  # Tutup login window
+        
+        # Buka window input barang
+        open_item_input_window()
+    else:
+        messagebox.showerror("Login Gagal", "Username atau Password salah!")
 
-    # Enkripsi data
-    encrypted_data = encrypt_data(data)
-    encrypted_data_hex = encrypted_data.hex()
+# Fungsi untuk input barang setelah login
+def open_item_input_window():
+    item_window = tk.Tk()
+    item_window.title("Input Data Barang")
+    
+    # Label dan Entry untuk input data barang
+    tk.Label(item_window, text="Nama Barang:").grid(row=0)
+    tk.Label(item_window, text="Harga Barang:").grid(row=1)
+    tk.Label(item_window, text="Jumlah Barang:").grid(row=2)
+    tk.Label(item_window, text="Tanggal:").grid(row=3)
 
-    # Simpan data terenkripsi ke file Excel
-    df = pd.DataFrame({"Data Terenkripsi": [encrypted_data_hex]})
-    df.to_excel("encrypted_login_data.xlsx", index=False)
+    nama_barang_entry = tk.Entry(item_window)
+    harga_barang_entry = tk.Entry(item_window)
+    jumlah_barang_entry = tk.Entry(item_window)
 
-    messagebox.showinfo("Login Info", f"Login berhasil!\nData terenkripsi disimpan di Excel.")
-    login_window.quit()  # Tutup window setelah login
+    # Tampilkan tanggal otomatis
+    tanggal = datetime.now().strftime("%Y-%m-%d")
+    tanggal_label = tk.Label(item_window, text=tanggal)
+    
+    nama_barang_entry.grid(row=0, column=1)
+    harga_barang_entry.grid(row=1, column=1)
+    jumlah_barang_entry.grid(row=2, column=1)
+    tanggal_label.grid(row=3, column=1)
+
+    # Fungsi untuk menyimpan data ke Excel
+    def simpan_data():
+        nama_barang = nama_barang_entry.get()
+        harga_barang = harga_barang_entry.get()
+        jumlah_barang = jumlah_barang_entry.get()
+        
+        if not (nama_barang and harga_barang and jumlah_barang):
+            messagebox.showwarning("Peringatan", "Semua kolom harus diisi!")
+            return
+
+        data = {
+            "Nama Barang": [nama_barang],
+            "Harga Barang": [harga_barang],
+            "Jumlah Barang": [jumlah_barang],
+            "Tanggal": [tanggal]
+        }
+        df = pd.DataFrame(data)
+        
+        # Simpan data ke file Excel
+        df.to_excel("data_barang.xlsx", index=False)
+        messagebox.showinfo("Berhasil", "Data berhasil disimpan!")
+        item_window.destroy()
+
+    # Tombol untuk menyimpan data
+    tk.Button(item_window, text="Simpan", command=simpan_data).grid(row=4, column=1, pady=10)
+
+    item_window.mainloop()
 
 # Generate RSA keys jika belum ada
 try:
@@ -71,7 +122,7 @@ try:
 except FileNotFoundError:
     generate_rsa_keys()
 
-# GUI menggunakan tkinter
+# GUI Login menggunakan tkinter
 login_window = tk.Tk()
 login_window.title("Login Page")
 
