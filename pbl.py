@@ -6,123 +6,108 @@ from cryptography.hazmat.backends import default_backend
 import pandas as pd
 from datetime import datetime
 
-# Fungsi untuk membuat kunci RSA (public dan private)
-def generate_rsa_keys():
-    private_key = rsa.generate_private_key(
-        public_exponent=65537,
-        key_size=2048,
-        backend=default_backend()
-    )
-    public_key = private_key.public_key()
+# Fungsi untuk menghitung GCD
+def gcd(a, b):
+    while b != 0:
+        a, b = b, a % b
+    return a
 
-    # Simpan private key
-    with open("private_key.pem", "wb") as priv_file:
-        priv_file.write(
-            private_key.private_bytes(
-                encoding=serialization.Encoding.PEM,
-                format=serialization.PrivateFormat.TraditionalOpenSSL,
-                encryption_algorithm=serialization.NoEncryption()
-            )
-        )
+# Fungsi Algoritma Euclidean
+def extended_gcd(a, b):
+    if a == 0:
+        return b, 0, 1 
+    gcd_val, x1, y1 = extended_gcd(b % a, a)
+    x = y1 - (b // a) * x1
+    y = x1
+    return gcd_val, x, y
 
-    # Simpan public key
-    with open("public_key.pem", "wb") as pub_file:
-        pub_file.write(
-            public_key.public_bytes(
-                encoding=serialization.Encoding.PEM,
-                format=serialization.PublicFormat.SubjectPublicKeyInfo
-            )
-        )
+# Mencari nilai d atau kunci privat dekrip
+def calculate_d(e, qn):
+    gcd_val, d, _ = extended_gcd(e, qn)
+    if gcd_val != 1:
+        raise ValueError("e dan qn tidak relatif prima. Tidak ada invers.")
+    return d % qn
 
-# Fungsi untuk mengenkripsi data
-def encrypt_data(data):
-    with open("public_key.pem", "rb") as pub_file:
-        public_key = serialization.load_pem_public_key(pub_file.read(), backend=default_backend())
+# Fungsi untuk enkripsi
+def encrypt_message(message, e, n):
+    encrypted_message = ""
+    for char in message:
+        m = ord(char.lower()) - ord('a') + 3 if char.isalpha() else 0
+        c = pow(m, e, n)
+        encrypted_message += f"{c:04d}"
+    return encrypted_message
 
-    ciphertext = public_key.encrypt(
-        data.encode(),
-        padding.OAEP(
-            mgf=padding.MGF1(algorithm=hashes.SHA256()),
-            algorithm=hashes.SHA256(),
-            label=None
-        )
-    )
-    return ciphertext
+# Fungsi untuk dekripsi
+def decrypt_message(encrypted_message, d, n):
+    decrypted_message = ''
+    for i in range(0, len(encrypted_message), 4):
+        c = int(encrypted_message[i:i+4])
+        m = pow(c, d, n)
+        char = chr(m + ord('a') - 3) if m > 0 else ' '
+        decrypted_message += char
+    return decrypted_message
 
-# Fungsi untuk login
+# RSA Parameters
+p = 47
+q = 71
+e = 79
+n = p * q
+qn = (p - 1) * (q - 1)
+d = calculate_d(e, qn)
+
+# Fungsi login
 def login():
     username = username_entry.get()
     password = password_entry.get()
-    
-    # Cek apakah login sesuai
     if username == "Arsyad" and password == "admin123":
-        messagebox.showinfo("Login Info", "Login berhasil!")
-        login_window.destroy()  # Tutup login window
-        
-        # Buka window input barang
-        open_item_input_window()
+        login_window.destroy()
+        open_data_entry_window()  # Membuka window untuk memasukkan data barang
     else:
-        messagebox.showerror("Login Gagal", "Username atau Password salah!")
+        messagebox.showerror("Login Failed", "Username atau password salah!")
 
-# Fungsi untuk input barang setelah login
-def open_item_input_window():
-    item_window = tk.Tk()
-    item_window.title("Input Data Barang")
+# Fungsi untuk menyimpan data barang
+def save_item_data():
+    nama_barang = item_name_entry.get()
+    harga_barang = item_price_entry.get()
+    jumlah_barang = item_quantity_entry.get()
+    tanggal_input = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
-    # Label dan Entry untuk input data barang
-    tk.Label(item_window, text="Nama Barang:").grid(row=0)
-    tk.Label(item_window, text="Harga Barang:").grid(row=1)
-    tk.Label(item_window, text="Jumlah Barang:").grid(row=2)
-    tk.Label(item_window, text="Tanggal:").grid(row=3)
-
-    nama_barang_entry = tk.Entry(item_window)
-    harga_barang_entry = tk.Entry(item_window)
-    jumlah_barang_entry = tk.Entry(item_window)
-
-    # Tampilkan tanggal otomatis
-    tanggal = datetime.now().strftime("%Y-%m-%d")
-    tanggal_label = tk.Label(item_window, text=tanggal)
+    data = f"{nama_barang}, {harga_barang}, {jumlah_barang}, {tanggal_input}"
     
-    nama_barang_entry.grid(row=0, column=1)
-    harga_barang_entry.grid(row=1, column=1)
-    jumlah_barang_entry.grid(row=2, column=1)
-    tanggal_label.grid(row=3, column=1)
+    # Enkripsi data
+    encrypted_message = encrypt_message(data, e, n)
+    
+    # Simpan hasil enkripsi ke Excel
+    df = pd.DataFrame({"Data Terenkripsi": [encrypted_message]})
+    df.to_excel("encrypted_data_barang.xlsx", index=False)
+    
+    messagebox.showinfo("Data Saved", "Data barang berhasil disimpan dan terenkripsi.")
+    data_entry_window.quit()
 
-    # Fungsi untuk menyimpan data ke Excel
-    def simpan_data():
-        nama_barang = nama_barang_entry.get()
-        harga_barang = harga_barang_entry.get()
-        jumlah_barang = jumlah_barang_entry.get()
-        
-        if not (nama_barang and harga_barang and jumlah_barang):
-            messagebox.showwarning("Peringatan", "Semua kolom harus diisi!")
-            return
+# Fungsi untuk membuka window input data barang
+def open_data_entry_window():
+    global item_name_entry, item_price_entry, item_quantity_entry, data_entry_window
+    
+    data_entry_window = tk.Tk()
+    data_entry_window.title("Data Barang")
+    
+    tk.Label(data_entry_window, text="Nama Barang:").grid(row=0)
+    tk.Label(data_entry_window, text="Harga Barang:").grid(row=1)
+    tk.Label(data_entry_window, text="Jumlah Barang:").grid(row=2)
+    
+    item_name_entry = tk.Entry(data_entry_window)
+    item_price_entry = tk.Entry(data_entry_window)
+    item_quantity_entry = tk.Entry(data_entry_window)
+    
+    item_name_entry.grid(row=0, column=1)
+    item_price_entry.grid(row=1, column=1)
+    item_quantity_entry.grid(row=2, column=1)
+    
+    tk.Button(data_entry_window, text='Simpan', command=save_item_data).grid(row=3, column=1, pady=4)
+    
+    data_entry_window.mainloop()
 
-        data = {
-            "Nama Barang": [nama_barang],
-            "Harga Barang": [harga_barang],
-            "Jumlah Barang": [jumlah_barang],
-            "Tanggal": [tanggal]
-        }
-        df = pd.DataFrame(data)
-        
-        # Simpan data ke file Excel
-        df.to_excel("data_barang.xlsx", index=False)
-        messagebox.showinfo("Berhasil", "Data berhasil disimpan!")
-        item_window.destroy()
-
-    # Tombol untuk menyimpan data
-    tk.Button(item_window, text="Simpan", command=simpan_data).grid(row=4, column=1, pady=10)
-
-    item_window.mainloop()
-
-# Generate RSA keys jika belum ada
-try:
-    open("public_key.pem", "rb")
-except FileNotFoundError:
-    generate_rsa_keys()
-
-# GUI Login menggunakan tkinter
+# GUI untuk login
 login_window = tk.Tk()
 login_window.title("Login Page")
 
