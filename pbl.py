@@ -65,6 +65,16 @@ def login():
     else:
         messagebox.showerror("Login Failed", "Username atau password salah!")
 
+# Fungsi untuk registrasi
+def register():
+    username = username_entry.get()
+    password = password_entry.get()
+    # Simpan username dan password (di sini hanya contoh, sebaiknya simpan di database)
+    if username and password:
+        messagebox.showinfo("Registrasi Berhasil", "Akun berhasil dibuat!")
+    else:
+        messagebox.showerror("Registrasi Gagal", "Username dan password tidak boleh kosong!")
+
 # Fungsi untuk menyimpan data barang
 def save_item_data():
     nama_barang = item_name_entry.get()
@@ -72,13 +82,24 @@ def save_item_data():
     jumlah_barang = item_quantity_entry.get()
     tanggal_input = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
-    data = f"{nama_barang}, {harga_barang}, {jumlah_barang}, {tanggal_input}"
+    # Menghitung harga total
+    total_harga = float(harga_barang) * int(jumlah_barang) 
+    
+    data = f"{nama_barang}, {harga_barang}, {jumlah_barang}, {total_harga}, {tanggal_input}"  # {{ edit_2 }}
     
     # Enkripsi data
     encrypted_message = encrypt_message(data, e, n)
     
     # Simpan hasil enkripsi ke Excel
-    df = pd.DataFrame({"Data Terenkripsi": [encrypted_message]})
+    df = pd.DataFrame({
+        "Nama Barang": [nama_barang],  # {{ edit_1 }}
+        "Harga Barang": [harga_barang],  # {{ edit_1 }}
+        "Jumlah Barang": [jumlah_barang],  # {{ edit_1 }}
+        "Total Harga": [total_harga],  # {{ edit_1 }}
+        "Tanggal Input": [tanggal_input],  # {{ edit_1 }}
+        "Data Terenkripsi": [encrypted_message]  # {{ edit_1 }}
+    })
+    
     df.to_excel("encrypted_data_barang.xlsx", index=False)
     
     messagebox.showinfo("Data Saved", "Data barang berhasil disimpan dan terenkripsi.")
@@ -115,11 +136,12 @@ tk.Label(login_window, text="Nama:").grid(row=0)
 tk.Label(login_window, text="Password:").grid(row=1)
 
 username_entry = tk.Entry(login_window)
-password_entry = tk.Entry(login_window, show='*')
+password_entry = tk.Entry(login_window, show='*') 
 
 username_entry.grid(row=0, column=1)
 password_entry.grid(row=1, column=1)
 
 tk.Button(login_window, text='Login', command=login).grid(row=2, column=1, sticky=tk.W, pady=4)
+tk.Button(login_window, text='Registrasi', command=register).grid(row=3, column=1, sticky=tk.W, pady=4)
 
 login_window.mainloop()
