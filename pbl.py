@@ -5,6 +5,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.backends import default_backend
 import pandas as pd
 from datetime import datetime
+import sqlite3 
 
 # Fungsi untuk menghitung GCD
 def gcd(a, b):
@@ -61,7 +62,7 @@ def login():
     password = password_entry.get()
     if username == "Arsyad" and password == "admin123":
         login_window.destroy()
-        open_data_entry_window()  # Membuka window untuk memasukkan data barang
+        open_data_entry_window() 
     else:
         messagebox.showerror("Login Failed", "Username atau password salah!")
 
@@ -69,11 +70,31 @@ def login():
 def register():
     username = username_entry.get()
     password = password_entry.get()
-    # Simpan username dan password (di sini hanya contoh, sebaiknya simpan di database)
-    if username and password:
+    
+    # Koneksi ke database SQLite
+    conn = sqlite3.connect('users.db')
+    cursor = conn.cursor()
+    
+    # Membuat tabel jika belum ada
+    cursor.execute(''' 
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE,
+            password TEXT
+        )
+    ''')
+    
+    # Simpan username dan password
+    try:
+        cursor.execute('INSERT INTO users (username, password) VALUES (?, ?)', (username, password))
+        conn.commit()  
         messagebox.showinfo("Registrasi Berhasil", "Akun berhasil dibuat!")
-    else:
-        messagebox.showerror("Registrasi Gagal", "Username dan password tidak boleh kosong!")
+        login_window.destroy()
+        open_data_entry_window()  
+    except sqlite3.IntegrityError:
+        messagebox.showerror("Registrasi Gagal", "Username sudah digunakan!")
+    
+    conn.close()  # Tutup koneksi database
 
 # Fungsi untuk menyimpan data barang
 def save_item_data():
@@ -85,19 +106,19 @@ def save_item_data():
     # Menghitung harga total
     total_harga = float(harga_barang) * int(jumlah_barang) 
     
-    data = f"{nama_barang}, {harga_barang}, {jumlah_barang}, {total_harga}, {tanggal_input}"  # {{ edit_2 }}
+    data = f"{nama_barang}, {harga_barang}, {jumlah_barang}, {total_harga}, {tanggal_input}" 
     
     # Enkripsi data
     encrypted_message = encrypt_message(data, e, n)
     
     # Simpan hasil enkripsi ke Excel
     df = pd.DataFrame({
-        "Nama Barang": [nama_barang],  # {{ edit_1 }}
-        "Harga Barang": [harga_barang],  # {{ edit_1 }}
-        "Jumlah Barang": [jumlah_barang],  # {{ edit_1 }}
-        "Total Harga": [total_harga],  # {{ edit_1 }}
-        "Tanggal Input": [tanggal_input],  # {{ edit_1 }}
-        "Data Terenkripsi": [encrypted_message]  # {{ edit_1 }}
+        "Nama Barang": [nama_barang], 
+        "Harga Barang": [harga_barang], 
+        "Jumlah Barang": [jumlah_barang], 
+        "Total Harga": [total_harga], 
+        "Tanggal Input": [tanggal_input],  
+        "Data Terenkripsi": [encrypted_message]  
     })
     
     df.to_excel("encrypted_data_barang.xlsx", index=False)
