@@ -1,11 +1,11 @@
-import tkinter as tk
+import tkinter as tk 
 from tkinter import messagebox
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.backends import default_backend
 import pandas as pd
 from datetime import datetime
-import sqlite3 
+import sqlite3
 
 # Fungsi untuk menghitung GCD
 def gcd(a, b):
@@ -44,7 +44,7 @@ def decrypt_message(encrypted_message, d, n):
     for i in range(0, len(encrypted_message), 4):
         c = int(encrypted_message[i:i+4])
         m = pow(c, d, n)
-        char = chr(m + ord('a') - 3) if m > 0 else ' '
+        char = chr(m + ord('a') - 8) if m > 0 else ' '
         decrypted_message += char
     return decrypted_message
 
@@ -60,11 +60,22 @@ d = calculate_d(e, qn)
 def login():
     username = username_entry.get()
     password = password_entry.get()
-    if username == "Arsyad" and password == "admin123":
+    
+    # Koneksi ke database SQLite
+    conn = sqlite3.connect('users.db')
+    cursor = conn.cursor()
+    
+    # Cek apakah username dan password cocok
+    cursor.execute("SELECT * FROM users WHERE username = ? AND password = ?", (username, password))
+    result = cursor.fetchone()
+    
+    if result:
         login_window.destroy()
-        open_data_entry_window() 
+        open_data_entry_window()  # Membuka window untuk memasukkan data barang
     else:
         messagebox.showerror("Login Failed", "Username atau password salah!")
+    
+    conn.close()
 
 # Fungsi untuk registrasi
 def register():
@@ -89,12 +100,10 @@ def register():
         cursor.execute('INSERT INTO users (username, password) VALUES (?, ?)', (username, password))
         conn.commit()  
         messagebox.showinfo("Registrasi Berhasil", "Akun berhasil dibuat!")
-        login_window.destroy()
-        open_data_entry_window()  
     except sqlite3.IntegrityError:
         messagebox.showerror("Registrasi Gagal", "Username sudah digunakan!")
     
-    conn.close()  # Tutup koneksi database
+    conn.close()
 
 # Fungsi untuk menyimpan data barang
 def save_item_data():
@@ -110,23 +119,39 @@ def save_item_data():
     
     # Enkripsi data
     encrypted_message = encrypt_message(data, e, n)
+    decrypted_message = decrypt_message(encrypted_message, d, n)
     
     # Simpan hasil enkripsi ke Excel
-    df = pd.DataFrame({
-        "Nama Barang": [nama_barang], 
-        "Harga Barang": [harga_barang], 
-        "Jumlah Barang": [jumlah_barang], 
-        "Total Harga": [total_harga], 
-        "Tanggal Input": [tanggal_input],  
-        "Data Terenkripsi": [encrypted_message]  
-    })
+    try:
+        # Cek apakah file sudah ada
+        df = pd.read_excel("encrypted_data_barang.xlsx")
+        new_data = pd.DataFrame({
+            "Nama Barang": [nama_barang], 
+            "Harga Barang": [harga_barang], 
+            "Jumlah Barang": [jumlah_barang], 
+            "Total Harga": [total_harga], 
+            "Tanggal Input": [tanggal_input],  
+            "Data Terenkripsi": [encrypted_message]  
+        })
+        # Gabungkan data baru dengan data yang sudah ada
+        df = pd.concat([df, new_data], ignore_index=True)
+    except FileNotFoundError:
+        # Jika file tidak ada, buat DataFrame baru
+        df = pd.DataFrame({
+            "Nama Barang": [nama_barang], 
+            "Harga Barang": [harga_barang], 
+            "Jumlah Barang": [jumlah_barang], 
+            "Total Harga": [total_harga], 
+            "Tanggal Input": [tanggal_input],  
+            "Data Terenkripsi": [encrypted_message]  
+        })
     
     df.to_excel("encrypted_data_barang.xlsx", index=False)
     
     messagebox.showinfo("Data Saved", "Data barang berhasil disimpan dan terenkripsi.")
     data_entry_window.quit()
 
-# Fungsi untuk membuka window input data barang
+# Fungsi untuk membuka window input data baranga
 def open_data_entry_window():
     global item_name_entry, item_price_entry, item_quantity_entry, data_entry_window
     
@@ -149,7 +174,7 @@ def open_data_entry_window():
     
     data_entry_window.mainloop()
 
-# GUI untuk login
+# GUI untuk login dan registrasi
 login_window = tk.Tk()
 login_window.title("Login Page")
 
